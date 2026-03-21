@@ -20,7 +20,7 @@ The obvious network choice? Ethernet. Gigabit, well-supported, dirt cheap, and m
 
 The first prototype was dead simple. One TI AM263x microcontroller, one AD7606C ADC reading 8 channels of analog data, one Ethernet cable running to a laptop. The ADC samples, the MCU packs the readings into a UDP packet with a timestamp, fires it off. On the laptop, a Python script catches the packets and plots them in real time.
 
-![Single board topology — one AM263x with ADC connected directly to a laptop over 1 Gbps Ethernet](/assets/images/ethernet-piece1/01_single_board.png)
+![Single board topology — one AM263x with ADC connected directly to a laptop over 1 Gbps Ethernet]({{ site.baseurl }}/assets/images/ethernet-piece1/01_single_board.png)
 *One board. One link. No contention. No problems.*
 
 Data flows. Timestamps are monotonically increasing. Packets arrive in order. Life is good. There's nothing interesting happening here — and that's exactly the point. One producer, one consumer, one dedicated link. Ethernet at its most well-behaved. Like a highway with exactly one car on it — hard to have a traffic jam.
@@ -37,7 +37,7 @@ A switch is, in the simplest terms, a device that connects multiple Ethernet dev
 
 Except not really.
 
-![Two acquisition boards connected through a network switch to one laptop](/assets/images/ethernet-piece1/02_two_boards_switch.png)
+![Two acquisition boards connected through a network switch to one laptop]({{ site.baseurl }}/assets/images/ethernet-piece1/02_two_boards_switch.png)
 *Two producers, one shared exit. This is where things start to break.*
 
 The moment this topology exists, three questions appear. And none of them have good answers within standard Ethernet.
@@ -54,7 +54,7 @@ It gets worse. Crystals drift. A typical crystal oscillator on a dev board has a
 
 And there's no way to know this from the data alone. Both boards will happily report consecutive, perfectly-spaced timestamps from their own local clocks. Everything looks fine. The drift is silent.
 
-![Two independent clocks drifting apart — after 600,000 samples, a 30ms gap exists between what each board thinks is now](/assets/images/ethernet-piece1/03_clock_drift.png)
+![Two independent clocks drifting apart — after 600,000 samples, a 30ms gap exists between what each board thinks is now]({{ site.baseurl }}/assets/images/ethernet-piece1/03_clock_drift.png)
 *At 50 ppm drift, sample #600,000 on each board refers to physical moments 30 ms apart.*
 
 For a DAQ, this is catastrophic. The entire point of measuring multiple things simultaneously is the "simultaneously" part. If the chamber pressure spikes at t=4.000s on Board 1, and the vibration data from Board 2 shows a spike at t=4.000s (by its own clock), you want to correlate those events. You want to say "the pressure spike and the vibration spike happened at the same instant." But if the clocks have drifted, you might be correlating events that are milliseconds apart. For a rocket engine where things change fast, milliseconds matter.
@@ -73,7 +73,7 @@ The problem is: what happens when two frames need to exit the same port at the s
 
 They can't. Ethernet is a serial protocol — one frame at a time on the wire. So the switch has a queue (a buffer) on each egress port. Frames that can't be sent immediately get queued up and sent in order. First in, first out.
 
-![Inside a switch — two ingress ports feeding interleaved frames into a single egress queue toward the laptop](/assets/images/ethernet-piece1/04_switch_internals.png)
+![Inside a switch — two ingress ports feeding interleaved frames into a single egress queue toward the laptop]({{ site.baseurl }}/assets/images/ethernet-piece1/04_switch_internals.png)
 *Two ingress ports feeding one egress queue. Frames interleave nondeterministically.*
 
 Now let's think about this numerically. Both boards are sending at 1 kHz. That's 1000 packets per second, per board. The laptop's egress port sees 2000 packets per second arriving from two different ingress ports. At gigabit speeds, a typical ~200 byte DAQ packet takes about 1.6 microseconds to transmit. So 2000 packets per second is only about 3.2 ms of wire time out of every 1000 ms — less than 1% utilization. Bandwidth is not the problem.
@@ -82,7 +82,7 @@ The problem is *when* those packets arrive. Both boards sample at 1 kHz. Both bo
 
 How long does it wait? Depends. Maybe 2 µs. Maybe 20 µs. Maybe more if there's other traffic. The point is: the delay is not constant. It's variable. And variable delay has a name in networking — *jitter*.
 
-![The same packet taking three different trips through a switch — 2µs, 20µs, and 200µs — showing variable queuing delay](/assets/images/ethernet-piece1/05_jitter.png)
+![The same packet taking three different trips through a switch — 2µs, 20µs, and 200µs — showing variable queuing delay]({{ site.baseurl }}/assets/images/ethernet-piece1/05_jitter.png)
 *Same data. Same route. Different delay every time. This is jitter.*
 
 For the DAQ, jitter means: even if both boards sampled at the exact same instant (which, as we established, they didn't — but hypothetically), the packets arrive at the laptop at different times. The laptop can't distinguish between "these were sampled at the same time but arrived at different times" and "these were sampled at different times." The temporal information is corrupted by the network itself.
@@ -99,7 +99,7 @@ Or imagine a firmware update being pushed to one of the boards while the other i
 
 All of these are frames. All of them enter the switch. All of them end up in the same egress queues. And in standard Ethernet, they're all treated equally. The switch doesn't know (and doesn't care) that the chamber pressure reading is more important than the firmware update chunk. First come, first served.
 
-![An egress queue where a critical gain-change command is stuck behind four firmware update chunks](/assets/images/ethernet-piece1/06_priority_queue.png)
+![An egress queue where a critical gain-change command is stuck behind four firmware update chunks]({{ site.baseurl }}/assets/images/ethernet-piece1/06_priority_queue.png)
 *In standard Ethernet, there is no "excuse me, coming through."*
 
 This is the priority problem. Not all data is created equal, but Ethernet treats it like it is. There's a VLAN priority field in the 802.1Q header (3 bits, 8 priority levels), but standard switches handle this with "best effort" — they'll *try* to send higher priority frames first, but there's no guarantee, no hard deadline, no "this frame MUST exit within 50 µs or the system fails."

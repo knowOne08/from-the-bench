@@ -1,7 +1,7 @@
 title: from the bench
 description: Engineering notes from building a distributed DAQ for rocket engines
-baseurl: ""
-url: ""
+baseurl: "/from-the-bench"
+url: "https://knowone08.github.io"
 
 theme: minima
 
