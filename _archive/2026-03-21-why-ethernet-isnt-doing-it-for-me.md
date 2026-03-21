@@ -14,7 +14,7 @@ Now here's the thing — the DAQ being built here isn't a single monolithic box 
 
 The obvious network choice? Ethernet. Gigabit, well-supported, dirt cheap, and more bandwidth than we'd ever need. At least, that's what it looked like on paper.
 
----
+<center class="separator">• • •</center>
 
 ## One board, no problems
 
@@ -27,7 +27,7 @@ Data flows. Timestamps are monotonically increasing. Packets arrive in order. Li
 
 The trouble starts when you add a second car.
 
----
+<center class="separator">• • •</center>
 
 ## The second board changes everything
 
@@ -42,7 +42,7 @@ Except not really.
 
 The moment this topology exists, three questions appear. And none of them have good answers within standard Ethernet.
 
----
+<center class="separator">• • •</center>
 
 ## Question 1: Did they sample at the same time?
 
@@ -61,7 +61,7 @@ For a DAQ, this is catastrophic. The entire point of measuring multiple things s
 
 Ethernet doesn't solve this. Ethernet moves frames from point A to point B. It has no concept of time, no mechanism for telling two devices "your clocks should agree." It's a postal service, not a metronome.
 
----
+<center class="separator">• • •</center>
 
 ## Question 2: What happens inside the switch?
 
@@ -87,7 +87,7 @@ How long does it wait? Depends. Maybe 2 µs. Maybe 20 µs. Maybe more if there's
 
 For the DAQ, jitter means: even if both boards sampled at the exact same instant (which, as we established, they didn't — but hypothetically), the packets arrive at the laptop at different times. The laptop can't distinguish between "these were sampled at the same time but arrived at different times" and "these were sampled at different times." The temporal information is corrupted by the network itself.
 
----
+<center class="separator">• • •</center>
 
 ## Question 3: Can anything cut the line?
 
@@ -106,7 +106,7 @@ This is the priority problem. Not all data is created equal, but Ethernet treats
 
 For a DAQ on a test stand, this matters. If a pressure reading that's trending toward a redline gets delayed because it's stuck behind bulk telemetry in a queue, that's not just an inconvenience — that's a safety-relevant delay.
 
----
+<center class="separator">• • •</center>
 
 ## The three problems, stated plainly
 
@@ -122,7 +122,7 @@ Ethernet was built to move data reliably across a network. And it does that bril
 
 And for a DAQ — a system whose entire value proposition is knowing what happened, where, and *exactly when* — that's a fundamental mismatch.
 
----
+<center class="separator">• • •</center>
 
 ## So now what?
 

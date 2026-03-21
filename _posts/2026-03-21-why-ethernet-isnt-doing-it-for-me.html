@@ -1,0 +1,386 @@
+---
+layout: none
+title: "Why Ethernet isn't doing it for me"
+date: 2026-03-21
+permalink: /why-ethernet-isnt-doing-it-for-me/
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why Ethernet isn't doing it for me</title>
+</head>
+<body style="background: #ffffff; padding: 20px;">
+<style>
+  /* CSS Variables with fallback colors */
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #666666;
+    --color-text-tertiary: #999999;
+    --color-text-info: #1a5fb4;
+    --color-text-danger: #c01c28;
+    --color-background-secondary: #f5f5f5;
+    --color-background-info: #e5f0ff;
+    --color-background-danger: #ffe5e5;
+    --color-border-secondary: #d0d0d0;
+    --color-border-tertiary: #e0e0e0;
+    --border-radius-lg: 12px;
+    --border-radius-md: 8px;
+    
+    /* SVG color variables */
+    --s: #888888;
+    --b: #888888;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  .blog { max-width: 680px; margin: 0 auto; padding: 1rem 0; font-family: var(--font-sans); color: var(--color-text-primary); line-height: 1.8; }
+  .blog h1 { font-size: 26px; font-weight: 500; margin-bottom: 0.5rem; letter-spacing: -0.5px; }
+  .blog h2 { font-size: 19px; font-weight: 500; margin: 2.5rem 0 1rem; padding-bottom: 6px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .blog p { font-size: 15px; margin-bottom: 1.1rem; color: var(--color-text-primary); }
+  .blog .subtitle { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 2rem; font-style: italic; }
+  .blog .diagram-wrap { margin: 1.5rem 0; border-radius: var(--border-radius-lg); padding: 16px 8px; }
+  .blog .diagram-caption { font-size: 12px; color: var(--color-text-tertiary); text-align: center; margin-top: 8px; font-style: italic; }
+  .blog .callout { background: var(--color-background-info); border-radius: var(--border-radius-md); padding: 12px 16px; margin: 1.2rem 0; font-size: 14px; color: var(--color-text-info); }
+  .blog .summary-box { border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-lg); padding: 20px; margin: 1.5rem 0; }
+  .blog .summary-box h3 { font-size: 15px; font-weight: 500; margin-bottom: 12px; }
+  .blog .problem-item { display: flex; gap: 10px; margin-bottom: 10px; font-size: 14px; }
+  .blog .problem-num { font-weight: 500; color: var(--color-text-secondary); min-width: 18px; }
+  .blog .separator { text-align: center; color: var(--color-text-tertiary); margin: 2rem 0; letter-spacing: 8px; font-size: 12px; }
+  .blog em { font-style: italic; }
+  .blog strong { font-weight: 500; }
+
+  /* SVG styling classes */
+  .c-teal rect { fill: #e6f7f2; stroke: #1D9E75; }
+  .c-teal text { fill: #1D9E75; }
+  .c-blue rect { fill: #e8f2fc; stroke: #378ADD; }
+  .c-blue text { fill: #378ADD; }
+  .c-gray rect { fill: #f0f0ef; stroke: #888780; }
+  .c-gray text { fill: #666666; }
+  .c-amber rect { fill: #fef5e7; stroke: #BA7517; }
+  .c-amber text { fill: #BA7517; }
+  .c-red rect { fill: #fdeaea; stroke: #E24B4A; }
+  .c-red text { fill: #E24B4A; }
+  
+  /* SVG text styles */
+  .th { font-size: 14px; font-weight: 500; fill: #1a1a1a; }
+  .ts { font-size: 12px; fill: #666666; }
+  
+  /* Make sure SVG text is visible */
+  svg text { fill: #1a1a1a; }
+  svg .ts { fill: #666666; }
+  svg .th { fill: #1a1a1a; }
+</style>
+
+<div class="blog">
+
+<h1>Why Ethernet isn't doing it for me</h1>
+<p class="subtitle">Piece 1 of the Ethernet → TSN arc</p>
+
+<p>A rocket engine doesn't care about your measurement system. It will happily produce hundreds of sensor readings — temperatures, pressures, vibrations, flow rates — at thousands of samples per second, whether or not anything on the other end is ready to catch them. The job of a Data Acquisition System (DAQ, because aerospace runs on acronyms) is to be ready. Always. For all of them. At once.</p>
+
+<p>Now here's the thing — the DAQ being built here isn't a single monolithic box with a rats nest of cables running into it. That would be too easy (and too heavy, and too fragile, and a nightmare to debug on a test stand where things are occasionally on fire). Instead, it's a distributed system: multiple small acquisition boards scattered across the test stand, each reading its own set of sensors, all connected over a network to a central machine that collects everything.</p>
+
+<p>The obvious network choice? Ethernet. Gigabit, well-supported, dirt cheap, and more bandwidth than we'd ever need. At least, that's what it looked like on paper.</p>
+
+<div class="separator">• • •</div>
+
+<h2>One board, no problems</h2>
+
+<p>The first prototype was dead simple. One TI AM263x microcontroller, one AD7606C ADC reading 8 channels of analog data, one Ethernet cable running to a laptop. The ADC samples, the MCU packs the readings into a UDP packet with a timestamp, fires it off. On the laptop, a Python script catches the packets and plots them in real time.</p>
+
+<div class="diagram-wrap">
+<svg width="100%" viewBox="0 0 680 160">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <g class="c-teal">
+    <rect x="60" y="40" width="200" height="80" rx="10" stroke-width="0.5"/>
+    <text class="th" x="160" y="68" text-anchor="middle" dominant-baseline="central">AM263x + AD7606C</text>
+    <text class="ts" x="160" y="90" text-anchor="middle" dominant-baseline="central">8ch ADC → UDP packets</text>
+  </g>
+  <line x1="262" y1="80" x2="398" y2="80" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="330" y="70" text-anchor="middle">1 Gbps</text>
+  <g class="c-blue">
+    <rect x="400" y="40" width="200" height="80" rx="10" stroke-width="0.5"/>
+    <text class="th" x="500" y="68" text-anchor="middle" dominant-baseline="central">Laptop</text>
+    <text class="ts" x="500" y="90" text-anchor="middle" dominant-baseline="central">Python receiver</text>
+  </g>
+</svg>
+<div class="diagram-caption">One board. One link. No contention. No problems.</div>
+</div>
+
+<p>Data flows. Timestamps are monotonically increasing. Packets arrive in order. Life is good. There's nothing interesting happening here — and that's exactly the point. One producer, one consumer, one dedicated link. Ethernet at its most well-behaved. Like a highway with exactly one car on it — hard to have a traffic jam.</p>
+
+<p>The trouble starts when you add a second car.</p>
+
+<div class="separator">• • •</div>
+
+<h2>The second board changes everything</h2>
+
+<p>The DAQ needs to measure sensors across the engine — not from one spot, but from multiple physical locations. So the architecture calls for multiple acquisition boards, each sampling its own set of channels, all reporting back to one machine. They can't all plug directly into the laptop (laptops, annoyingly, come with one Ethernet port). So they need a network switch.</p>
+
+<p>A switch is, in the simplest terms, a device that connects multiple Ethernet devices into a network. Any device plugged into it can talk to any other device. Plug in three boards, they can all reach the laptop. Problem solved.</p>
+
+<p>Except not really.</p>
+
+<div class="diagram-wrap">
+<svg width="100%" viewBox="0 0 680 240">
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <g class="c-teal">
+    <rect x="40" y="30" width="170" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="125" y="50" text-anchor="middle" dominant-baseline="central">Board 1</text>
+    <text class="ts" x="125" y="68" text-anchor="middle" dominant-baseline="central">8ch ADC</text>
+  </g>
+  <g class="c-teal">
+    <rect x="40" y="150" width="170" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="125" y="170" text-anchor="middle" dominant-baseline="central">Board 2</text>
+    <text class="ts" x="125" y="188" text-anchor="middle" dominant-baseline="central">8ch ADC</text>
+  </g>
+  <line x1="212" y1="58" x2="280" y2="115" stroke="#1D9E75" stroke-width="1" marker-end="url(#arr2)"/>
+  <line x1="212" y1="178" x2="280" y2="125" stroke="#1D9E75" stroke-width="1" marker-end="url(#arr2)"/>
+  <g class="c-gray">
+    <rect x="282" y="92" width="120" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="342" y="120" text-anchor="middle" dominant-baseline="central">Switch</text>
+  </g>
+  <line x1="404" y1="120" x2="468" y2="120" stroke="#888780" stroke-width="1" marker-end="url(#arr2)"/>
+  <g class="c-blue">
+    <rect x="470" y="92" width="170" height="56" rx="8" stroke-width="0.5"/>
+    <text class="th" x="555" y="112" text-anchor="middle" dominant-baseline="central">Laptop</text>
+    <text class="ts" x="555" y="130" text-anchor="middle" dominant-baseline="central">Python receiver</text>
+  </g>
+  <text class="ts" x="342" y="80" text-anchor="middle">two producers, one shared exit</text>
+</svg>
+</div>
+
+<p>The moment this topology exists, three questions appear. And none of them have good answers within standard Ethernet.</p>
+
+<div class="separator">• • •</div>
+
+<h2>Question 1: Did they sample at the same time?</h2>
+
+<p>This is the one that matters most, and it's the one that's easiest to get wrong.</p>
+
+<p>Both boards are sampling at 1 kHz — every millisecond, read the ADC, pack a packet, send it. But "every millisecond" according to whom? Each board has its own crystal oscillator. Its own notion of time. Board 1's crystal says "1 ms has passed" and Board 2's crystal independently says "1 ms has passed" and those two moments are not the same moment. They were never the same moment. Nobody told them to be.</p>
+
+<p>It gets worse. Crystals drift. A typical crystal oscillator on a dev board has an accuracy of around ±20-50 ppm (parts per million). That sounds small. It isn't. At 50 ppm, you're accumulating 50 microseconds of drift every second. Over a 10-minute engine test, that's 30 milliseconds. At 1 kHz sampling, that's 30 entire samples of misalignment. Board 1's sample number 600,000 and Board 2's sample number 600,000 are now measuring moments that are 30 ms apart in physical reality.</p>
+
+<p>And there's no way to know this from the data alone. Both boards will happily report consecutive, perfectly-spaced timestamps from their own local clocks. Everything looks fine. The drift is silent.</p>
+
+<div class="diagram-wrap">
+<svg width="100%" viewBox="0 0 680 300">
+  <text class="th" x="40" y="30" dominant-baseline="central">Board 1's clock</text>
+  <line x1="40" y1="55" x2="640" y2="55" stroke="var(--s)" stroke-width="0.5"/>
+  <line x1="40" y1="50" x2="40" y2="60" stroke="#1D9E75" stroke-width="1.5"/>
+  <line x1="100" y1="50" x2="100" y2="60" stroke="#1D9E75" stroke-width="1.5"/>
+  <line x1="160" y1="50" x2="160" y2="60" stroke="#1D9E75" stroke-width="1.5"/>
+  <line x1="220" y1="50" x2="220" y2="60" stroke="#1D9E75" stroke-width="1.5"/>
+  <line x1="280" y1="50" x2="280" y2="60" stroke="#1D9E75" stroke-width="1.5"/>
+  <text class="ts" x="40" y="75" text-anchor="middle">t=0</text>
+  <text class="ts" x="100" y="75" text-anchor="middle">t=1</text>
+  <text class="ts" x="160" y="75" text-anchor="middle">t=2</text>
+  <text class="ts" x="220" y="75" text-anchor="middle">t=3</text>
+  <text class="ts" x="280" y="75" text-anchor="middle">t=4</text>
+  <text class="ts" x="580" y="48" text-anchor="middle">t = 600,000</text>
+  <line x1="560" y1="50" x2="560" y2="60" stroke="#1D9E75" stroke-width="1.5"/>
+  <text class="ts" x="350" y="55" text-anchor="middle" dominant-baseline="central">· · ·</text>
+
+  <text class="th" x="40" y="120" dominant-baseline="central">Board 2's clock</text>
+  <line x1="40" y1="145" x2="640" y2="145" stroke="var(--s)" stroke-width="0.5"/>
+  <line x1="40" y1="140" x2="40" y2="150" stroke="#378ADD" stroke-width="1.5"/>
+  <line x1="100" y1="140" x2="100" y2="150" stroke="#378ADD" stroke-width="1.5"/>
+  <line x1="160" y1="140" x2="160" y2="150" stroke="#378ADD" stroke-width="1.5"/>
+  <line x1="220" y1="140" x2="220" y2="150" stroke="#378ADD" stroke-width="1.5"/>
+  <line x1="280" y1="140" x2="280" y2="150" stroke="#378ADD" stroke-width="1.5"/>
+  <text class="ts" x="40" y="165" text-anchor="middle">t=0</text>
+  <text class="ts" x="100" y="165" text-anchor="middle">t=1</text>
+  <text class="ts" x="160" y="165" text-anchor="middle">t=2</text>
+  <text class="ts" x="220" y="165" text-anchor="middle">t=3</text>
+  <text class="ts" x="280" y="165" text-anchor="middle">t=4</text>
+  <text class="ts" x="600" y="138" text-anchor="middle">t = 600,000</text>
+  <line x1="580" y1="140" x2="580" y2="150" stroke="#378ADD" stroke-width="1.5"/>
+  <text class="ts" x="350" y="145" text-anchor="middle" dominant-baseline="central">· · ·</text>
+
+  <line x1="560" y1="60" x2="560" y2="140" stroke="#E24B4A" stroke-width="0.5" stroke-dasharray="4 3"/>
+  <line x1="580" y1="60" x2="580" y2="140" stroke="#E24B4A" stroke-width="0.5" stroke-dasharray="4 3"/>
+  <rect x="544" y="88" width="54" height="22" rx="4" fill="var(--color-background-danger)" stroke="none"/>
+  <text x="571" y="100" text-anchor="middle" dominant-baseline="central" style="font-size:11px;fill:var(--color-text-danger);font-weight:500">30 ms</text>
+
+  <rect x="40" y="210" width="600" height="56" rx="8" fill="var(--color-background-secondary)" stroke="0.5px solid var(--color-border-tertiary)"/>
+  <text class="ts" x="340" y="230" text-anchor="middle" dominant-baseline="central">Both boards think they're right. Neither is wrong.</text>
+  <text class="ts" x="340" y="250" text-anchor="middle" dominant-baseline="central">They just live in different temporal realities.</text>
+</svg>
+<div class="diagram-caption">At 50 ppm drift, sample #600,000 on each board refers to physical moments 30 ms apart.</div>
+</div>
+
+<p>For a DAQ, this is catastrophic. The entire point of measuring multiple things simultaneously is the "simultaneously" part. If the chamber pressure spikes at t=4.000s on Board 1, and the vibration data from Board 2 shows a spike at t=4.000s (by its own clock), you want to correlate those events. You want to say "the pressure spike and the vibration spike happened at the same instant." But if the clocks have drifted, you might be correlating events that are milliseconds apart. For a rocket engine where things change fast, milliseconds matter.</p>
+
+<p>Ethernet doesn't solve this. Ethernet moves frames from point A to point B. It has no concept of time, no mechanism for telling two devices "your clocks should agree." It's a postal service, not a metronome.</p>
+
+<div class="separator">• • •</div>
+
+<h2>Question 2: What happens inside the switch?</h2>
+
+<p>So both boards send their packets to the laptop. Both are going through the switch. Let's look at what actually happens in there.</p>
+
+<p>A switch, internally, is simpler than most people think. Each port has an ingress side (where frames come in) and an egress side (where frames go out). When a frame arrives on any port, the switch reads the destination MAC address, figures out which port it needs to exit from, and sends it out that port.</p>
+
+<p>The problem is: what happens when two frames need to exit the same port at the same time?</p>
+
+<p>They can't. Ethernet is a serial protocol — one frame at a time on the wire. So the switch has a queue (a buffer) on each egress port. Frames that can't be sent immediately get queued up and sent in order. First in, first out.</p>
+
+<div class="diagram-wrap">
+<svg width="100%" viewBox="0 0 680 320">
+  <defs>
+    <marker id="arr3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <g class="c-gray">
+    <rect x="80" y="20" width="500" height="240" rx="16" stroke-width="0.5"/>
+    <text class="th" x="330" y="44" text-anchor="middle" dominant-baseline="central">Switch internals</text>
+  </g>
+  <text class="ts" x="110" y="85" dominant-baseline="central">Ingress</text>
+  <text class="ts" x="110" y="105" dominant-baseline="central">(Board 1)</text>
+  <text class="ts" x="110" y="175" dominant-baseline="central">Ingress</text>
+  <text class="ts" x="110" y="195" dominant-baseline="central">(Board 2)</text>
+
+  <line x1="165" y1="92" x2="240" y2="140" stroke="#1D9E75" stroke-width="1" marker-end="url(#arr3)"/>
+  <line x1="165" y1="182" x2="240" y2="148" stroke="#378ADD" stroke-width="1" marker-end="url(#arr3)"/>
+
+  <g class="c-amber">
+    <rect x="242" y="110" width="280" height="80" rx="8" stroke-width="0.5"/>
+    <text class="th" x="382" y="132" text-anchor="middle" dominant-baseline="central">Egress queue → Laptop</text>
+  </g>
+
+  <g class="c-teal"><rect x="260" y="148" width="44" height="32" rx="4" stroke-width="0.5"/><text class="ts" x="282" y="164" text-anchor="middle" dominant-baseline="central">B1</text></g>
+  <g class="c-blue"><rect x="312" y="148" width="44" height="32" rx="4" stroke-width="0.5"/><text class="ts" x="334" y="164" text-anchor="middle" dominant-baseline="central">B2</text></g>
+  <g class="c-teal"><rect x="364" y="148" width="44" height="32" rx="4" stroke-width="0.5"/><text class="ts" x="386" y="164" text-anchor="middle" dominant-baseline="central">B1</text></g>
+  <g class="c-blue"><rect x="416" y="148" width="44" height="32" rx="4" stroke-width="0.5"/><text class="ts" x="438" y="164" text-anchor="middle" dominant-baseline="central">B2</text></g>
+  <g class="c-teal"><rect x="468" y="148" width="44" height="32" rx="4" stroke-width="0.5"/><text class="ts" x="490" y="164" text-anchor="middle" dominant-baseline="central">B1</text></g>
+
+  <line x1="524" y1="150" x2="560" y2="150" stroke="#BA7517" stroke-width="1" marker-end="url(#arr3)"/>
+  <text class="ts" x="555" y="175" text-anchor="middle">→ out</text>
+
+  <text class="ts" x="330" y="228" text-anchor="middle">When both arrive at once, one waits.</text>
+  <text class="ts" x="330" y="246" text-anchor="middle">The wait time is variable. That's the problem.</text>
+</svg>
+<div class="diagram-caption">Two ingress ports feeding one egress queue. Frames interleave nondeterministically.</div>
+</div>
+
+<p>Now let's think about this numerically. Both boards are sending at 1 kHz. That's 1000 packets per second, per board. The laptop's egress port sees 2000 packets per second arriving from two different ingress ports. At gigabit speeds, a typical ~200 byte DAQ packet takes about 1.6 microseconds to transmit. So 2000 packets per second is only about 3.2 ms of wire time out of every 1000 ms — less than 1% utilization. Bandwidth is not the problem.</p>
+
+<p>The problem is <em>when</em> those packets arrive. Both boards sample at 1 kHz. Both boards have roughly similar processing times. So their packets tend to arrive at the switch at roughly the same time — within microseconds of each other. And when they do, one of them waits.</p>
+
+<p>How long does it wait? Depends. Maybe 2 µs. Maybe 20 µs. Maybe more if there's other traffic. The point is: the delay is not constant. It's variable. And variable delay has a name in networking — <em>jitter</em>.</p>
+
+<div class="diagram-wrap">
+<svg width="100%" viewBox="0 0 680 220">
+  <text class="th" x="340" y="24" text-anchor="middle" dominant-baseline="central">Same packet, different trips through the switch</text>
+  <line x1="100" y1="70" x2="100" y2="190" stroke="var(--b)" stroke-width="0.5"/>
+  <text class="ts" x="100" y="56" text-anchor="middle">Enter switch</text>
+  <line x1="100" y1="90" x2="180" y2="90" stroke="#1D9E75" stroke-width="2" marker-end="url(#arr3)"/>
+  <text class="ts" x="196" y="94" dominant-baseline="central">2 µs</text>
+  <text class="ts" x="60" y="94" text-anchor="end" dominant-baseline="central">Trip 1</text>
+
+  <line x1="100" y1="125" x2="330" y2="125" stroke="#BA7517" stroke-width="2" marker-end="url(#arr3)"/>
+  <text class="ts" x="346" y="129" dominant-baseline="central">20 µs</text>
+  <text class="ts" x="60" y="129" text-anchor="end" dominant-baseline="central">Trip 2</text>
+
+  <line x1="100" y1="160" x2="520" y2="160" stroke="#E24B4A" stroke-width="2" marker-end="url(#arr3)"/>
+  <text class="ts" x="536" y="164" dominant-baseline="central">200 µs</text>
+  <text class="ts" x="60" y="164" text-anchor="end" dominant-baseline="central">Trip 3</text>
+
+  <text class="ts" x="340" y="200" text-anchor="middle">Same data. Same route. Different delay every time. This is jitter.</text>
+</svg>
+</div>
+
+<p>For the DAQ, jitter means: even if both boards sampled at the exact same instant (which, as we established, they didn't — but hypothetically), the packets arrive at the laptop at different times. The laptop can't distinguish between "these were sampled at the same time but arrived at different times" and "these were sampled at different times." The temporal information is corrupted by the network itself.</p>
+
+<div class="separator">• • •</div>
+
+<h2>Question 3: Can anything cut the line?</h2>
+
+<p>Here's a scenario. The DAQ is running, both boards sampling away, data flowing to the laptop. Now imagine the system also needs to send a configuration command from the laptop to Board 1 — "change your sampling rate" or "switch to a different gain setting." That command goes through the same switch, same network.</p>
+
+<p>Or imagine a health monitoring packet that Board 2 sends every second — CPU temperature, memory usage, error counts. Useful telemetry, but not time-critical.</p>
+
+<p>Or imagine a firmware update being pushed to one of the boards while the other is still acquiring data.</p>
+
+<p>All of these are frames. All of them enter the switch. All of them end up in the same egress queues. And in standard Ethernet, they're all treated equally. The switch doesn't know (and doesn't care) that the chamber pressure reading is more important than the firmware update chunk. First come, first served.</p>
+
+<div class="diagram-wrap">
+<svg width="100%" viewBox="0 0 680 220">
+  <defs>
+    <marker id="arr4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <text class="th" x="340" y="24" text-anchor="middle" dominant-baseline="central">Egress queue → Board 1</text>
+  <g class="c-gray"><rect x="60" y="50" width="96" height="56" rx="6" stroke-width="0.5"/><text class="ts" x="108" y="70" text-anchor="middle" dominant-baseline="central">FW chunk</text><text class="ts" x="108" y="88" text-anchor="middle" dominant-baseline="central">#412</text></g>
+  <g class="c-gray"><rect x="164" y="50" width="96" height="56" rx="6" stroke-width="0.5"/><text class="ts" x="212" y="70" text-anchor="middle" dominant-baseline="central">FW chunk</text><text class="ts" x="212" y="88" text-anchor="middle" dominant-baseline="central">#411</text></g>
+  <g class="c-gray"><rect x="268" y="50" width="96" height="56" rx="6" stroke-width="0.5"/><text class="ts" x="316" y="70" text-anchor="middle" dominant-baseline="central">FW chunk</text><text class="ts" x="316" y="88" text-anchor="middle" dominant-baseline="central">#410</text></g>
+  <g class="c-gray"><rect x="372" y="50" width="96" height="56" rx="6" stroke-width="0.5"/><text class="ts" x="420" y="70" text-anchor="middle" dominant-baseline="central">FW chunk</text><text class="ts" x="420" y="88" text-anchor="middle" dominant-baseline="central">#409</text></g>
+  <g class="c-red"><rect x="476" y="50" width="120" height="56" rx="6" stroke-width="0.5"/><text class="ts" x="536" y="70" text-anchor="middle" dominant-baseline="central">CMD: set</text><text class="ts" x="536" y="88" text-anchor="middle" dominant-baseline="central">gain = 2x</text></g>
+  <line x1="598" y1="78" x2="640" y2="78" stroke="#A32D2D" stroke-width="1" marker-end="url(#arr4)"/>
+
+  <path d="M536 108 L536 140" stroke="#E24B4A" stroke-width="0.5" stroke-dasharray="3 2"/>
+  <text x="536" y="156" text-anchor="middle" style="font-size:12px;fill:var(--color-text-danger)">This critical command</text>
+  <text x="536" y="172" text-anchor="middle" style="font-size:12px;fill:var(--color-text-danger)">waits behind 4 FW chunks</text>
+  <text x="536" y="188" text-anchor="middle" style="font-size:12px;fill:var(--color-text-danger)">(~6.4 ms delay)</text>
+
+  <text class="ts" x="340" y="212" text-anchor="middle">In standard Ethernet, there is no "excuse me, coming through."</text>
+</svg>
+</div>
+
+<p>This is the priority problem. Not all data is created equal, but Ethernet treats it like it is. There's a VLAN priority field in the 802.1Q header (3 bits, 8 priority levels), but standard switches handle this with "best effort" — they'll <em>try</em> to send higher priority frames first, but there's no guarantee, no hard deadline, no "this frame MUST exit within 50 µs or the system fails."</p>
+
+<p>For a DAQ on a test stand, this matters. If a pressure reading that's trending toward a redline gets delayed because it's stuck behind bulk telemetry in a queue, that's not just an inconvenience — that's a safety-relevant delay.</p>
+
+<div class="separator">• • •</div>
+
+<h2>The three problems, stated plainly</h2>
+
+<p>Strip away the specifics and what's left is this:</p>
+
+<div class="summary-box">
+  <div class="problem-item">
+    <span class="problem-num">1.</span>
+    <div><strong>No shared time.</strong> Each device on the network has its own clock, its own notion of "now." Ethernet provides no mechanism for these clocks to agree. Two boards sampling "simultaneously" are only simultaneous by coincidence, and that coincidence degrades with every passing second.</div>
+  </div>
+  <div class="problem-item">
+    <span class="problem-num">2.</span>
+    <div><strong>No deterministic delivery.</strong> A frame's journey through a switch includes a variable queuing delay that depends on traffic conditions at the instant it arrives. The same frame, carrying the same data, can take 2 µs on one trip and 200 µs on the next. For a protocol, this is fine. For a measurement system, this is noise injected directly into your temporal reference.</div>
+  </div>
+  <div class="problem-item">
+    <span class="problem-num">3.</span>
+    <div><strong>No priority enforcement.</strong> All frames are equal citizens in a standard Ethernet queue. A critical real-time reading and a bulk data transfer sit in the same line and are served in the same order. There's no mechanism to guarantee that time-sensitive data gets through within a bounded delay.</div>
+  </div>
+</div>
+
+<p>Ethernet was built to move data reliably across a network. And it does that brilliantly — decades of engineering have made it fast, cheap, and ubiquitous. But it was never designed to answer the question "when." It's a logistics network, not a synchronization protocol. It can tell you <em>what</em> was sent and <em>where</em> it went, but the question of <em>when</em> something happened is entirely outside its vocabulary.</p>
+
+<p>And for a DAQ — a system whose entire value proposition is knowing what happened, where, and <em>exactly when</em> — that's a fundamental mismatch.</p>
+
+<div class="separator">• • •</div>
+
+<h2>So now what?</h2>
+
+<p>The requirements haven't changed. The DAQ still needs multiple boards, still needs a network, still needs to know that when Board 1 says "t=4.000s" and Board 2 says "t=4.000s" they're talking about the same four seconds since the test started. The problem isn't Ethernet's speed or reliability. The problem is that Ethernet is temporally blind.</p>
+
+<p>What's needed is a way to give the network a sense of time. A way for devices to agree on a shared clock, for the switch to guarantee delivery within known bounds, and for critical traffic to take priority over everything else. Not a replacement for Ethernet — that would throw away decades of ecosystem, tooling, and silicon. But an extension. Something that takes Ethernet's existing foundation and adds the one thing it was never designed to have: determinism.</p>
+
+<p>That something exists. It's called Time-Sensitive Networking (TSN). And it changes everything.</p>
+
+<p style="font-style:italic;color:var(--color-text-secondary);margin-top:2rem;">But that's the next post.</p>
+
+</div>
+</body>
+</html>
