@@ -1,0 +1,22 @@
+title: from the bench
+description: Engineering notes from building a distributed DAQ for rocket engines
+baseurl: ""
+url: ""
+
+theme: minima
+
+permalink: /:title/
+
+header_pages:
+  - about.md
+
+markdown: kramdown
+kramdown:
+  input: GFM
+
+defaults:
+  - scope:
+      path: "_posts"
+      type: "posts"
+    values:
+      layout: "post"
